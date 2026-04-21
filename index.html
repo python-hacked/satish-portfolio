@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Satish Choudhary — Terminal Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0a0e14;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'JetBrains Mono',monospace;padding:20px}
+    #term-root{background:#0d1117;color:#c9d1d9;width:100%;max-width:860px;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.7);border:1px solid #30363d}
+    .titlebar{background:#161b22;padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #30363d;user-select:none}
+    .dot{width:12px;height:12px;border-radius:50%;cursor:pointer}
+    .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:#28c840}
+    .tbar-title{margin:0 auto;font-size:12px;color:#8b949e;letter-spacing:.5px}
+    .screen{flex:1;padding:18px 20px;overflow-y:auto;height:480px;scroll-behavior:smooth}
+    .screen::-webkit-scrollbar{width:4px}.screen::-webkit-scrollbar-track{background:transparent}.screen::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px}
+    .line{font-size:13px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+    .input-row{display:flex;align-items:center;gap:8px;padding:8px 20px 12px;background:#0d1117;border-top:1px solid #1c2128}
+    .prompt{font-size:13px;white-space:nowrap;transition:color .3s}
+    #cmd-input{background:transparent;border:none;outline:none;color:#c9d1d9;font-family:inherit;font-size:13px;flex:1;caret-color:#57ab5a}
+    .hint-bar{padding:8px 20px;background:#0d1117;border-top:1px solid #1c2128;font-size:11px;color:#484f58;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .hint-bar .cmd{color:#57ab5a;cursor:pointer;transition:opacity .15s}.hint-bar .cmd:hover{opacity:.7}
+    .os-picker{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+    .os-btn{border:1px solid #30363d;background:#161b22;color:#c9d1d9;font-family:inherit;font-size:12px;padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .2s}
+    .os-btn:hover{border-color:#57ab5a;color:#57ab5a}
+    .os-btn.active{border-color:#57ab5a;background:#0d2818;color:#57ab5a}
+    .green{color:#57ab5a}.cyan{color:#79c0ff}.yellow{color:#e3b341}.red{color:#f85149}.magenta{color:#d2a8ff}.gray{color:#8b949e}.white{color:#c9d1d9}.bold{font-weight:700}
+    a{color:#79c0ff;text-decoration:none}.a:hover{text-decoration:underline}
+    @media(max-width:600px){.screen{height:360px}.hint-bar{display:none}}
+  </style>
+</head>
+<body>
+<div id="term-root">
+  <div class="titlebar">
+    <div class="dot dot-r" title="close"></div>
+    <div class="dot dot-y" title="minimize"></div>
+    <div class="dot dot-g" title="maximize"></div>
+    <span class="tbar-title" id="tbar-os">satish@portfolio ~ bash</span>
+  </div>
+  <div class="screen" id="screen"></div>
+  <div class="input-row">
+    <span class="prompt" id="prompt-txt" style="color:#57ab5a">satish@portfolio:~$</span>
+    <input id="cmd-input" autofocus placeholder="type a command and press Enter..." spellcheck="false" autocomplete="off"/>
+  </div>
+  <div class="hint-bar">
+    <span>Quick:</span>
+    <span class="cmd" onclick="runCmd('whoami')">whoami</span>·
+    <span class="cmd" onclick="runCmd('skills')">skills</span>·
+    <span class="cmd" onclick="runCmd('experience')">experience</span>·
+    <span class="cmd" onclick="runCmd('projects')">projects</span>·
+    <span class="cmd" onclick="runCmd('contact')">contact</span>·
+    <span class="cmd" onclick="runCmd('open-source')">open-source</span>·
+    <span class="cmd" onclick="runCmd('game')">game 🎮</span>·
+    <span class="cmd" onclick="runCmd('help')">help</span>
+  </div>
+</div>
+
+<script>
+const screen=document.getElementById('screen');
+const input=document.getElementById('cmd-input');
+const promptTxt=document.getElementById('prompt-txt');
+const tbar=document.getElementById('tbar-os');
+
+let os='linux';
+let gameActive=false;
+let gameState={};
+let cmdHistory=[];
+let histIdx=-1;
+
+const osConfig={
+  linux:{prompt:'satish@portfolio:~$',title:'satish@portfolio ~ bash',color:'#57ab5a'},
+  mac:{prompt:'satish@MacBook ~ %',title:'satish — -zsh — 80×24',color:'#79c0ff'},
+  windows:{prompt:'C:\\Users\\Satish>',title:'Windows PowerShell',color:'#febc2e'}
+};
+
+const data={
+  email:'satishchoudhary394@gmail.com',
+  phone:'+91 9340227897',
+  linkedin:'https://www.linkedin.com/in/satish-choudhary-629a4b128/',
+  github:'https://github.com/python-hacked',
+  summary:'Dynamic Senior Software Developer with 4 years of expertise in architecting scalable backend systems using Python, Django, and FastAPI. Creator of the dsn-sync open-source library. Specialist in AI-driven automation (Gemini + Twilio). Proven track record in fintech and legal-tech solutions.',
+  skills:{
+    'Languages / Frameworks':['Python (Expert)','Django','FastAPI','RESTful APIs','WebSocket','Celery','Redis'],
+    'AI & Automation':['Gemini AI','Twilio Voice Agent','AWS Textract (OCR)','WhatsApp Cloud API'],
+    'Databases':['PostgreSQL','MySQL','Firebase','Tortoise-ORM','Redis (Caching)'],
+    'Cloud / DevOps':['AWS (EC2, S3, RDS, Lambda)','GCP','Docker','GitHub Actions (CI/CD)','Nginx','Linux'],
+    'Tools & APIs':['Zoho Books API','Syncfusion Editor','Signulu (Aadhaar eSign)','Zoom API','Postman'],
+    'Open Source':['dsn-sync (Author)','PyPI Package Development','Custom Data Protocols']
+  },
+  jobs:[
+    {company:'Connectcosmic Networks',loc:'Delhi',role:'Sr. Software Developer / Tech Lead',period:'Nov 2024 – Present',pts:['Leading technical roadmap for Coreventum, a B2B SaaS ecosystem','End-to-end DevOps on AWS with seamless CI/CD deployments','High-level client negotiations and project demonstrations']},
+    {company:'Fxbytes Technologies',loc:'Indore',role:'Sr. Python Developer',period:'Dec 2023 – Feb 2024',pts:['High-concurrency backend solutions using FastAPI and Django','Mentored junior developers with strict code-review standards','Reduced latency & improved scalability by 40%']},
+    {company:'Bluetick Softech',loc:'Indore',role:'Software Developer',period:'Sep 2022 – Jun 2023',pts:['Modular backend services & third-party API integrations','PostgreSQL schema optimization for complex data migrations']},
+    {company:'Placid Digital',loc:'Indore',role:'Software Developer',period:'Sep 2021 – Aug 2022',pts:['Scalable systems with focus on data integrity & high availability','Streamlined backend API response times & query performance']}
+  ],
+  projects:[
+    {name:'dsn-sync',stack:'Python / PyPI',desc:'Open-source package enabling real-time backend-frontend sync without REST APIs, WebSockets, or Firebase. Custom encrypted protocol. 60% reduction in development time.',link:'https://pypi.org/project/dsn-sync/'},
+    {name:'Billing Pro.AI',stack:'FastAPI + Gemini AI + Twilio + Zoho + AWS',desc:'AI voice agent calls clients in natural Hinglish to collect missing invoice details. Two-way Zoho Books sync for invoices, vendors & payments. WhatsApp OCR automation via AWS Textract.'},
+    {name:'Coreventum',stack:'Django + PostgreSQL + WebSocket + Firebase',desc:'Legal Agreement SaaS with multi-role lifecycle management (Draft→Executed). Real-time document editing via Syncfusion. Aadhaar eSign via Signulu. E2E encrypted group chat. AI summarization.'},
+    {name:'I-Mangus',stack:'FastAPI + Tortoise-ORM',desc:'Educational suite with Admin & Teacher panels for content management and student progress tracking. Optimized large-scale digital classroom enrollment.'},
+    {name:'MantraYoga',stack:'FastAPI + PostgreSQL',desc:'Spiritual wellness platform. Video/audio content delivery, scheduling and complete backend infrastructure.'}
+  ]
+};
+
+const quiz=[
+  {q:'What Python package did Satish author and publish on PyPI?',a:'dsn-sync',hint:'pip install ___'},
+  {q:'Which AI service powers his voice agent that calls clients in Hinglish?',a:'gemini',hint:"Google's AI model — starts with G"},
+  {q:'How many years of experience does Satish have?',a:'4',hint:'A single digit'},
+  {q:'Which OCR service does he use for WhatsApp invoice automation?',a:'textract',hint:"Amazon's text extraction — AWS ___"},
+  {q:'What is the name of the legal SaaS he is currently building?',a:'coreventum',hint:'Core + ventum...'}
+];
+
+function c(text,cls){return`<span class="${cls}">${text}</span>`}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function print(html,extraClass=''){
+  const d=document.createElement('div');
+  d.className='line '+extraClass;
+  d.innerHTML=html;
+  screen.appendChild(d);
+  screen.scrollTop=screen.scrollHeight;
+}
+function br(){print('');}
+
+function setOS(name){
+  os=name;
+  const cfg=osConfig[name];
+  promptTxt.textContent=cfg.prompt;
+  promptTxt.style.color=cfg.color;
+  tbar.textContent=cfg.title;
+  document.querySelectorAll('.os-btn').forEach(b=>b.classList.toggle('active',b.dataset.os===name));
+}
+
+const cmds={
+  help(){
+    br();
+    print(c('╔═══════════════════════════════════════════╗','cyan'));
+    print(c('║      SATISH CHOUDHARY — PORTFOLIO CLI     ║','cyan'));
+    print(c('╚═══════════════════════════════════════════╝','cyan'));
+    br();
+    const list=[
+      ['whoami','About me & summary'],
+      ['skills','Full tech stack'],
+      ['experience','Work history (4 years)'],
+      ['projects','All key projects'],
+      ['project <name>','Detail view: dsn-sync | billing | coreventum | imangus | yoga'],
+      ['open-source','Deep dive into dsn-sync library'],
+      ['contact','Email, phone, LinkedIn, GitHub'],
+      ['education','Academic background'],
+      ['os <linux|mac|windows>','Switch terminal theme'],
+      ['game','Quiz game — unlock hidden secrets 🎮'],
+      ['ls','List all sections'],
+      ['clear','Clear the screen'],
+      ['banner','Show the welcome banner'],
+    ];
+    list.forEach(([cmd,desc])=>{
+      print(`  ${c(cmd.padEnd(32),'yellow')}${c(desc,'gray')}`);
+    });
+    br();
+    print(c('  Tip: Click any command in the quick bar below!','gray'));
+    br();
+  },
+  whoami(){
+    br();
+    print(c('┌─────────────────────────────────────────┐','magenta'));
+    print(c('│','magenta')+`  ${c('Satish Choudhary','white bold')}  ${c('·','gray')}  ${c('Senior Software Developer','cyan')}`+c('   │','magenta'));
+    print(c('└─────────────────────────────────────────┘','magenta'));
+    br();
+    print(`  ${c('Location  :','gray')} ${c('Indore, MP  →  Currently in Delhi','white')}`);
+    print(`  ${c('Experience:','gray')} ${c('4 years','yellow')}`);
+    print(`  ${c('Expertise :','gray')} ${c('Python · Django · FastAPI · AI Automation','cyan')}`);
+    print(`  ${c('Open Source:','gray')} ${c('dsn-sync (Author)','green')}`);
+    br();
+    print(c('  Summary:','green'));
+    const words=data.summary.split(' ');
+    let line='  ';
+    words.forEach(w=>{if((line+w).length>72){print(c(line,'gray'));line='  ';}line+=w+' ';});
+    if(line.trim())print(c(line,'gray'));
+    br();
+    print(`  ${c('→ Run','gray')} ${c('skills','yellow')} ${c('or','gray')} ${c('experience','yellow')} ${c('to explore more','gray')}`);
+    br();
+  },
+  skills(){
+    br();
+    print(c('  ⚡ TECHNICAL SKILLS','cyan bold'));
+    print(c('  ──────────────────','gray'));
+    br();
+    Object.entries(data.skills).forEach(([cat,items])=>{
+      print(`  ${c('['+cat+']','yellow bold')}`);
+      items.forEach(i=>print(`    ${c('▸','green')} ${c(i,'white')}`));
+      br();
+    });
+  },
+  experience(){
+    br();
+    print(c('  💼 WORK EXPERIENCE — 4 YEARS','cyan bold'));
+    print(c('  ────────────────────────────','gray'));
+    br();
+    data.jobs.forEach((j,idx)=>{
+      const badge=idx===0?`  ${c('● CURRENT','green bold')} `:`  ${c('●','gray')} `;
+      print(`${badge}${c(j.company,'white bold')}  ${c('|','gray')}  ${c(j.loc,'gray')}`);
+      print(`    ${c(j.role,'yellow')}  ${c(j.period,'gray')}`);
+      j.pts.forEach(p=>print(`    ${c('›','green')} ${p}`));
+      br();
+    });
+  },
+  projects(){
+    br();
+    print(c('  🚀 KEY PROJECTS','cyan bold'));
+    print(c('  ───────────────','gray'));
+    br();
+    data.projects.forEach(p=>{
+      print(`  ${c('▶','green')} ${c(p.name,'yellow bold')}`);
+      print(`    ${c('Stack:','gray')} ${c(p.stack,'cyan')}`);
+      print(`    ${p.desc}`);
+      if(p.link)print(`    ${c('Link:','gray')} <a href="${p.link}" target="_blank">${p.link}</a>`);
+      br();
+    });
+    print(c(`  → Use ${c('project <name>','yellow')} for full detail view`,'gray'));
+    br();
+  },
+  'open-source'(){
+    br();
+    print(c('  📦 DSN-SYNC — OPEN SOURCE LIBRARY','cyan bold'));
+    print(c('  ──────────────────────────────────','gray'));
+    br();
+    print(`  ${c('Install:','gray')} ${c('pip install dsn-sync','green')}`);
+    print(`  ${c('PyPI:','gray')}    <a href="https://pypi.org/project/dsn-sync/" target="_blank">pypi.org/project/dsn-sync</a>`);
+    br();
+    print(`  ${c('What it does:','yellow')}`);
+    print(`  Real-time backend-frontend sync with ${c('ZERO','red')} REST APIs,`);
+    print(`  WebSockets, or Firebase dependencies.`);
+    br();
+    print(`  ${c('Key innovations:','yellow')}`);
+    print(`  ${c('▸','green')} Custom ${c('encrypted communication protocol','cyan')}`);
+    print(`  ${c('▸','green')} Auto-generates dynamic endpoints`);
+    print(`  ${c('▸','green')} Schema-Driven Sync — frontend tables auto-created from backend defs`);
+    print(`  ${c('▸','green')} Built-in lightweight task engine (replaces Celery + Redis)`);
+    print(`  ${c('▸','green')} ${c('60% reduction','yellow')} in overall development time`);
+    br();
+  },
+  contact(){
+    br();
+    print(c('  📬 CONTACT SATISH','cyan bold'));
+    print(c('  ─────────────────','gray'));
+    br();
+    print(`  ${c('Email   :','gray')} <a href="mailto:${data.email}" target="_blank">${data.email}</a>`);
+    print(`  ${c('Phone   :','gray')} ${c(data.phone,'white')}`);
+    print(`  ${c('LinkedIn:','gray')} <a href="${data.linkedin}" target="_blank">${data.linkedin}</a>`);
+    print(`  ${c('GitHub  :','gray')} <a href="${data.github}" target="_blank">${data.github}</a>`);
+    br();
+  },
+  education(){
+    br();
+    print(c('  🎓 EDUCATION','cyan bold'));
+    br();
+    print(`  ${c('Acropolis Institute of Management Study and Research','white bold')}`);
+    print(`  ${c('Bachelor of Commerce','yellow')}  ${c('· Indore · 2015','gray')}`);
+    br();
+  },
+  ls(){
+    br();
+    const items=['whoami/','skills/','experience/','projects/','open-source/','contact/','education/','game/'];
+    let row='  ';
+    items.forEach((it,i)=>{row+=c(it,'cyan')+'   ';if((i+1)%4===0){print(row);row='  ';}});
+    if(row.trim())print(row);
+    br();
+  },
+  banner(){
+    br();
+    print(c(' ____    _  _____ ___ ____  _   _','cyan'));
+    print(c('/ ___|  / \\|_   _|_ _/ ___|| | | |','cyan'));
+    print(c('\\___ \\ / _ \\ | |  | |\\___ \\| |_| |','cyan'));
+    print(c(' ___) / ___ \\| |  | | ___) |  _  |','cyan'));
+    print(c('|____/_/   \\_\\_| |___|____/ |_| |_|','cyan'));
+    br();
+    print(c('  Senior Software Developer  ·  Python Expert  ·  4 Years','yellow'));
+    print(c('  Creator of dsn-sync  ·  AI Automation Specialist','gray'));
+    br();
+    print(`  Type ${c('help','green')} to explore all commands  ·  Type ${c('game','magenta')} to play`);
+    br();
+  },
+  clear(){screen.innerHTML=''; cmds.banner(); addOSPicker();},
+  game:startGame
+};
+
+const projectMap={
+  'dsn-sync':0,'dsnsync':0,'dsn':0,
+  'billing':1,'billingpro':1,'billing-pro':1,
+  'coreventum':2,'legal':2,
+  'imangus':3,'i-mangus':3,'mangus':3,
+  'yoga':4,'mantrayoga':4,'mantra':4
+};
+
+function handleProject(arg){
+  if(!arg){cmds.projects();return;}
+  const key=arg.toLowerCase().replace(/\s/g,'');
+  const idx=projectMap[key];
+  if(idx===undefined){print(c(`  Project "${esc(arg)}" not found. Try: dsn-sync | billing | coreventum | imangus | yoga`,'red'));return;}
+  const p=data.projects[idx];
+  br();
+  print(c(`  ▶ ${p.name}`,'yellow bold'));
+  print(c('  '+'─'.repeat(40),'gray'));
+  print(`  ${c('Stack:','gray')} ${c(p.stack,'cyan')}`);
+  br();
+  print(c('  Description:','green'));
+  print(`  ${p.desc}`);
+  if(p.link){br();print(`  ${c('Link:','gray')} <a href="${p.link}" target="_blank">${p.link}</a>`);}
+  br();
+}
+
+function handleOS(arg){
+  const valid=['linux','mac','windows'];
+  if(!arg||!valid.includes(arg.toLowerCase())){
+    print(c('  Usage: os <linux|mac|windows>','red'));
+    return;
+  }
+  setOS(arg.toLowerCase());
+  br();
+  print(c(`  ✓ Switched to ${arg.toUpperCase()} theme`,'green'));
+  br();
+}
+
+function startGame(){
+  gameActive=true;
+  gameState={step:0,score:0};
+  br();
+  print(c('  🎮 SATISH QUIZ — UNLOCK MY SECRETS','magenta bold'));
+  print(c('  ─────────────────────────────────','gray'));
+  print(`  Answer ${c(String(quiz.length),'yellow')} questions to unlock hidden details about me!`);
+  print(c('  Type your answer and press Enter','gray'));
+  br();
+  askQ();
+}
+
+function askQ(){
+  const q=quiz[gameState.step];
+  print(c(`  Q${gameState.step+1}/${quiz.length}: ${q.q}`,'cyan'));
+  print(c(`  Hint: ${q.hint}`,'gray'));
+}
+
+const unlocks=[
+  ()=>{print(`  🔓 ${c('dsn-sync','yellow')}: "Real-time sync with zero REST/WebSocket overhead."`);print(`     ${c('pip install dsn-sync','green')} — Check it on PyPI!`);},
+  ()=>{print(`  🔓 ${c('Billing Pro.AI','yellow')}: "AI agent calls clients autonomously in Hinglish."`);print(`     ${c('Real clients think they are talking to a human.','gray')}`);},
+  ()=>{print(`  🔓 ${c('Experience','yellow')}: "${c('4 years','cyan')} of fintech, legal-tech, and AI across 4 companies."`);},
+  ()=>{print(`  🔓 ${c('AWS Textract','yellow')}: "Zero manual data entry — clients just WhatsApp a photo."`);},
+  ()=>{print(`  🔓 ${c('Coreventum','yellow')}: "Draft → Review → eSign → Execute. Aadhaar + Syncfusion integrated."`);}
+];
+
+function handleGameInput(val){
+  const q=quiz[gameState.step];
+  const ok=val.toLowerCase().trim().includes(q.a.toLowerCase());
+  if(ok){gameState.score++;print(c('  ✓ Correct!','green bold'));unlocks[gameState.step]();}
+  else{print(c(`  ✗ Nope! Correct answer: ${c(q.a,'yellow')}`,'red'));}
+  gameState.step++;br();
+  if(gameState.step>=quiz.length){endGame();}else{askQ();}
+}
+
+function endGame(){
+  gameActive=false;
+  print(c(`  ══ GAME OVER — Score: ${gameState.score}/${quiz.length} ══`,'yellow bold'));br();
+  if(gameState.score===quiz.length){
+    print(c('  🏆 PERFECT SCORE! You know Satish inside-out.','green bold'));
+    print(c(`  Secret: ${data.email} — hire him now!`,'magenta'));
+  }else if(gameState.score>=3){
+    print(c('  🥈 Great! Run "projects" to explore his work.','cyan'));
+  }else{
+    print(c('  💡 Run "whoami" to learn more, then retry with "game"!','yellow'));
+  }br();
+}
+
+function addOSPicker(){
+  const picker=document.createElement('div');
+  picker.className='os-picker';
+  ['linux','mac','windows'].forEach(o=>{
+    const b=document.createElement('button');
+    b.className='os-btn'+(o===os?' active':'');
+    b.dataset.os=o;
+    b.textContent=o==='linux'?'🐧 Linux':o==='mac'?'🍎 macOS':'🪟 Windows';
+    b.onclick=()=>{setOS(o);print(c(`  ✓ ${o.toUpperCase()} theme activated`,'green'));};
+    picker.appendChild(b);
+  });
+  screen.appendChild(picker);
+}
+
+function run(raw){
+  const trimmed=raw.trim();
+  if(!trimmed)return;
+  cmdHistory.unshift(trimmed);histIdx=-1;
+  const cfg=osConfig[os];
+  print(`<span style="color:${cfg.color}">${esc(cfg.prompt)}</span> <span class="white">${esc(trimmed)}</span>`);
+  if(gameActive){handleGameInput(trimmed);return;}
+  const[cmd,...args]=trimmed.split(/\s+/);
+  const key=cmd.toLowerCase();
+  if(key==='os'){handleOS(args[0]);return;}
+  if(key==='project'){handleProject(args.join(' '));return;}
+  if(cmds[key]){cmds[key]();return;}
+  print(c(`  command not found: ${esc(cmd)} — type "help" for available commands`,'red'));br();
+}
+
+function runCmd(cmd){input.value=cmd;run(cmd);input.value='';input.focus();}
+
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){const v=input.value;input.value='';run(v);}
+  else if(e.key==='ArrowUp'){if(histIdx<cmdHistory.length-1){histIdx++;input.value=cmdHistory[histIdx]||'';}e.preventDefault();}
+  else if(e.key==='ArrowDown'){if(histIdx>0){histIdx--;input.value=cmdHistory[histIdx]||'';}else{histIdx=-1;input.value='';}e.preventDefault();}
+});
+screen.addEventListener('click',()=>input.focus());
+
+cmds.banner();
+addOSPicker();
+input.focus();
+</script>
+</body>
+</html>
